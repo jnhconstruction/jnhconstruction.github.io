@@ -8,13 +8,10 @@
     
     <style>
         /* Minimalist JWD Styling */
-        body { padding-bottom: 60px; }
-        .sticky-footer { 
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background-color: #fff;
-            padding: 0.75rem 1rem; box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
-        }
+        body { padding-bottom: 20px; /* Reduced bottom padding */ }
+        
+        /* REMOVED: .sticky-footer styles */
+        
         .doc-card { 
             border: 1px solid var(--pico-border-color); 
             padding: 1rem; margin-bottom: 1rem; 
@@ -66,7 +63,9 @@
             }
             
             /* HIDE ALL CONTROLS AND FORMS */
-            .sticky-footer, .doc-controls, button, input, textarea, select, hgroup, hr { 
+            /* Removed .sticky-footer, since the footer is now part of main content flow */
+            .doc-controls, button, input, textarea, select, hgroup, hr,
+            #save-status-container { /* Hide the save status on print */
                 display: none !important; 
             }
             
@@ -141,16 +140,17 @@
                 <button class="secondary" id="add-sub-button">(+) Capture Sub Lead Info</button>
             </div>
         </section>
-    </main>
-
-    <footer class="sticky-footer" id="status-footer">
-        <div class="container grid">
+        
+        <div id="save-status-container" style="text-align: center; margin-top: 30px;">
             <span id="save-status">Status: Initializing...</span>
-            <button id="report-button" class="contrast" disabled>
-                Print / Save PDF Report
-            </button>
+            <div style="margin-top: 10px;">
+                <button id="report-button" class="contrast" disabled>
+                    Print / Save PDF Report
+                </button>
+            </div>
         </div>
-    </footer>
+        
+    </main>
 
     <script>
         // --- CORE CONSTANTS & STATE ---
@@ -398,11 +398,6 @@
                 <div class="notes-input-group">
                     <label for="notes">4. Notes/Context:</label>
                     <textarea name="notes" placeholder="Detailed observations, assumptions, or access issues." rows="3">${data.notes}</textarea>
-                    <div class="voice-btn-container doc-controls">
-                        <button type="button" class="secondary" id="voice-notes-button">
-                            🎙️ Speak
-                        </button>
-                    </div>
                 </div>
 
                 <hr>
@@ -548,44 +543,6 @@
             }
         }
 
-        function startVoiceRecognition() {
-            if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-                alert("Voice input not supported in this browser. Please type your notes.");
-                return;
-            }
-            
-            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = new Recognition();
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            
-            const notesField = docCardForm.querySelector('textarea[name="notes"]');
-            const voiceButton = document.getElementById('voice-notes-button');
-            
-            voiceButton.textContent = "🔴 LISTENING...";
-            voiceButton.disabled = true;
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                const currentNotes = notesField.value;
-                notesField.value = currentNotes + (currentNotes ? ' ' : '') + transcript + '.';
-            };
-
-            recognition.onend = () => {
-                voiceButton.textContent = "🎙️ Speak";
-                voiceButton.disabled = false;
-                saveStateToDB();
-            };
-
-            recognition.onerror = () => {
-                voiceButton.textContent = "🎙️ Error: Try Again";
-                voiceButton.disabled = false;
-            };
-
-            recognition.start();
-        }
-
         // --- 4. SUBCONTRACTOR LOGIC ---
 
         function renderSubLeads() {
@@ -631,7 +588,7 @@
         }
 
         function getSubFormHTML(lead = {}) {
-            const specialties = ['ELECTRICAL', 'PLUMBING', 'STRUCTURAL CONCRETE', 'HVAC', 'MASONRY', 'ROOFING', 'SCFFOLDING', 'DEMOLITION', 'OTHER'];
+            const specialties = ['ELECTRICAL', 'PLUMBING', 'STRUCTURAL CONCRETE', 'HVAC', 'MASONRY', 'ROOFING', 'SCAFFOLDING', 'DEMOLITION', 'OTHER'];
             const specialtyOptions = specialties.map(spec => 
                 `<option value="${spec}" ${spec === lead.specialty ? 'selected' : ''}>${spec}</option>`
             ).join('');
