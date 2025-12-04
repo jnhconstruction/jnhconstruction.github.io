@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Walk Documentation Tool</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.*/css/pico.min.css">
+    
+    <style>
+        /* Minimalist JWD Styling */
+        body { padding-bottom: 60px; }
+        .sticky-footer { 
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background-color: #fff;
+            padding: 0.75rem 1rem; box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+        .doc-card { 
+            border: 1px solid var(--pico-border-color); 
+            padding: 1rem; margin-bottom: 1rem; 
+            border-radius: var(--pico-border-radius); 
+        }
+        /* FLAT LIST STYLING */
+        .doc-entry {
+            border: 1px solid var(--pico-border-color); 
+            padding: 1rem; margin-bottom: 1rem; 
+            border-radius: var(--pico-border-radius); 
+            background-color: var(--pico-code-background-color);
+        }
+        .doc-controls { 
+            margin-top: 1rem; 
+        }
+        .photo-previews { 
+            display: flex; gap: 0.5rem; 
+            overflow-x: auto; padding-bottom: 5px; 
+            margin-top: 5px;
+        }
+        .photo-thumbnail {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        /* Style the speak button adjacent to the text area */
+        .notes-input-group {
+            position: relative;
+        }
+        .notes-input-group textarea {
+            width: 100%;
+            padding-right: 50px; /* Make space for the button */
+        }
+        .voice-btn-container {
+            position: absolute;
+            top: 25px; /* Adjust based on label height */
+            right: 5px;
+            z-index: 10;
+        }
+
+        /* --- FINAL PRINT STYLES --- */
+        @media print {
+            /* Set Landscape Orientation and Margins */
+            @page { 
+                size: A4 landscape;
+                margin: 0.5in; 
+            }
+            
+            /* HIDE ALL CONTROLS AND FORMS */
+            .sticky-footer, .doc-controls, button, input, textarea, select, hgroup, hr { 
+                display: none !important; 
+            }
+            
+            /* HIDE THE COLLAPSIBLE FORM, SHOW ONLY THE PRINT-READY DIV */
+            #project-header details { display: none !important; }
+            #project-header-print-summary {
+                display: block !important;
+                padding: 10px;
+                border: 1px solid #ccc;
+                margin-bottom: 20px;
+            }
+
+            /* Report Elements Styling */
+            body { font-family: Arial, sans-serif; font-size: 10pt; }
+            .doc-entry { page-break-inside: avoid; margin-bottom: 15px; border: 1px solid #ddd !important; padding: 10px; display: flex; flex-direction: column; }
+            .report-item-title { font-size: 11pt; font-weight: bold; border-bottom: 1px solid #aaa; padding-bottom: 5px; margin-bottom: 5px; width: 100%; }
+            .photo-previews { display: block; float: right; max-width: 45%; margin-left: 10px; margin-bottom: 10px; }
+            .photo-previews img { max-width: 100%; height: auto; margin-top: 5px; border: 1px solid #ccc; }
+            .doc-entry::after { content: ""; display: table; clear: both; }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <hgroup>
+            <h1>Job Walk Documentation (JWD)</h1>
+            <p>Capture site details, media, and measurements.</p>
+        </hgroup>
+
+        <section id="project-header" role="group">
+            <div id="project-header-print-summary" style="display: none;">
+                </div>
+            
+            <details open>
+                <summary>Project Details: <strong id="header-summary">Untitled Job Walk - [Date]</strong></summary>
+                
+                <p>Use this area to define the job metadata.</p>
+                
+                <div class="grid">
+                    <label for="project-name">Project Name:</label>
+                    <input type="text" id="project-name" placeholder="Project Name" required>
+                </div>
+                
+                <div class="grid">
+                    <label for="job-date">Job Date:</label>
+                    <input type="date" id="job-date" required>
+                </div>
+
+                <label for="scope-brief">High-Level Scope/Contract Reference:</label>
+                <textarea id="scope-brief" placeholder="High-Level Scope/Contract Reference" rows="2"></textarea>
+            </details>
+        </section>
+        
+        <hr>
+
+        <section id="documentation-checklist">
+            <h2>Documentation Checklist</h2>
+            <div id="checklist-items-list">
+                </div>
+            <div id="doc-card-form-container" class="doc-controls">
+                <button class="contrast" id="add-doc-card-button">(+) Add New Documentation Item</button>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="sub-networking">
+            <h2>Subcontractor Leads</h2>
+            <div id="sub-leads-list">
+                </div>
+            <div id="sub-form-container" class="doc-controls">
+                <button class="secondary" id="add-sub-button">(+) Capture Sub Lead Info</button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="sticky-footer" id="status-footer">
+        <div class="container grid">
+            <span id="save-status">Status: Initializing...</span>
+            <button id="report-button" class="contrast" disabled>
+                Print / Save PDF Report
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        // --- CORE CONSTANTS & STATE ---
+        let db;
+        const DB_NAME = 'JWD_DB';
+        const DB_VERSION = 1;
+        const STATE_ID = 'currentJob';
+        const STATUSES = ['OK', 'REPAIR', 'REPLACE', 'ADDENDUM REQUIRED', 'SAFETY HAZARD'];
+        const MAX_PHOTOS = 3;
+
+        let docCardForm = null;
+        let subForm = null;
+
+        const state = {
+            id: STATE_ID,
+            project: { name: 'Untitled Job Walk', date: new Date().toISOString().split('T')[0], scope: '' },
+            checklistItems: [], 
+            subLeads: [], 
+        };
+
+        // --- 1. INDEXEDDB WRAPPER FUNCTIONS (CRITICAL) ---
+
+        function openDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (e) => reject('Error opening IndexedDB');
+                request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('jobs')) { db.createObjectStore('jobs', { keyPath: 'id' }); }
+                    if (!db.objectStoreNames.contains('media')) { db.createObjectStore('media', { keyPath: 'id' }); }
+                };
+            });
+        }
+
+        async function saveStateToDB() {
+            if (!db) return;
+            state.project.name = document.getElementById('project-name').value;
+            state.project.date = document.getElementById('job-date').value;
+            state.project.scope = document.getElementById('scope-brief').value;
+
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['jobs'], 'readwrite');
+                const store = transaction.objectStore('jobs');
+                const request = store.put(state);
+                
+                request.onsuccess = () => {
+                    document.getElementById('save-status').textContent = 'Status: Saved ' + new Date().toLocaleTimeString();
+                    resolve();
+                };
+                request.onerror = () => {
+                    document.getElementById('save-status').textContent = 'Status: SAVE FAILED! (Check Storage)';
+                    reject('Error saving state');
+                };
+            });
+        }
+
+        async function loadStateFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['jobs'], 'readonly');
+                const store = transaction.objectStore('jobs');
+                const request = store.get(STATE_ID);
+
+                request.onsuccess = (e) => {
+                    if (e.target.result) {
+                        Object.assign(state, e.target.result); 
+                    }
+                    resolve();
+                };
+                request.onerror = () => reject('Error loading state');
+            });
+        }
+
+        async function saveImageToDB(blob) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['media'], 'readwrite');
+                const store = transaction.objectStore('media');
+                const mediaId = `img-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+                const request = store.add({ id: mediaId, data: blob, timestamp: Date.now() });
+
+                request.onsuccess = () => resolve(mediaId);
+                request.onerror = () => reject('Error saving image: Check Quota');
+            });
+        }
+
+        async function getImageFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['media'], 'readonly');
+                const store = transaction.objectStore('media');
+                const request = store.get(id);
+
+                request.onsuccess = (e) => {
+                    if (e.target.result) {
+                        resolve(e.target.result.data); 
+                    } else {
+                        reject('Image not found.');
+                    }
+                };
+                request.onerror = () => reject('Error retrieving image');
+            });
+        }
+
+        // --- 2. JWD APPLICATION CORE & INIT ---
+        
+        function updateHeaderSummary() {
+            const name = document.getElementById('project-name').value || "Untitled Job Walk";
+            const date = document.getElementById('job-date').value;
+            document.getElementById('header-summary').textContent = `${name} - ${date}`;
+
+            // Update the print-ready header summary
+            const scope = document.getElementById('scope-brief').value || "N/A";
+            const printHtml = `
+                <h2 style="font-size: 14pt; border-bottom: 2px solid #000; padding-bottom: 5px;">Project Details</h2>
+                <p style="margin: 0; padding: 0;"><strong>Name:</strong> ${name}</p>
+                <p style="margin: 0; padding: 0;"><strong>Date:</strong> ${date}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Scope:</strong> ${scope}</p>
+                <hr style="margin: 10px 0;">
+            `;
+            document.getElementById('project-header-print-summary').innerHTML = printHtml;
+        }
+
+        async function initializeApp() {
+            try {
+                document.getElementById('save-status').textContent = 'Status: Connecting to DB...';
+                await openDatabase();
+                await loadStateFromDB();
+                
+                document.getElementById('project-name').value = state.project.name;
+                document.getElementById('job-date').value = state.project.date;
+                document.getElementById('scope-brief').value = state.project.scope;
+
+                // Listeners for auto-save and header update
+                document.querySelectorAll('#project-header input, #project-header textarea').forEach(el => {
+                    el.addEventListener('change', () => {
+                        saveStateToDB();
+                        updateHeaderSummary();
+                    });
+                });
+                setInterval(saveStateToDB, 30000); // 30s Auto-Save
+                
+                document.getElementById('report-button').disabled = false;
+                document.getElementById('report-button').addEventListener('click', () => {
+                    window.print(); 
+                });
+                
+                document.getElementById('add-doc-card-button').addEventListener('click', () => showDocCardForm());
+                document.getElementById('add-sub-button').addEventListener('click', () => showSubForm());
+
+                updateHeaderSummary(); // Initial run of the summary update
+                renderChecklistItems();
+                renderSubLeads();
+                document.getElementById('save-status').textContent = 'Status: Ready';
+
+            } catch (error) {
+                console.error("Initialization Failed:", error);
+                document.getElementById('save-status').textContent = `Status: CRITICAL ERROR - ${error}`;
+            }
+        }
+
+        // --- 3. CHECKLIST AND DOCUMENTATION CARD LOGIC ---
+
+        function renderChecklistItems() {
+            const listContainer = document.getElementById('checklist-items-list');
+            listContainer.innerHTML = '';
+
+            if (state.checklistItems.length === 0) {
+                listContainer.innerHTML = '<p>Start documenting by adding a new item.</p>';
+                return;
+            }
+
+            state.checklistItems.forEach(item => {
+                const photoContainerID = `list-photo-preview-${item.itemID}`;
+                const cardHtml = `
+                    <div class="doc-entry" data-item-id="${item.itemID}">
+                        <div class="report-item-title">
+                            ${item.description}
+                        </div>
+                        <p style="margin-top: 5px;">
+                            <strong>Status:</strong> 
+                            <span style="font-weight: bold; color: ${item.status === 'ADDENDUM REQUIRED' ? 'red' : 'green'};">${item.status}</span>
+                        </p>
+                        <p><strong>Notes:</strong> ${item.notes || 'N/A'}</p>
+                        <div id="${photoContainerID}" class="photo-previews">
+                            <p style="color: gray;">Loading photos...</p>
+                        </div>
+                        <div class="doc-controls">
+                            <button class="secondary" onclick="editDocCard('${item.itemID}')">Edit</button>
+                            <button class="warning" onclick="deleteDocCard('${item.itemID}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', cardHtml);
+                renderPhotoPreviews(item.photoIDs, item.itemID, photoContainerID, true);
+            });
+        }
+
+        function editDocCard(itemID) {
+            const item = state.checklistItems.find(i => i.itemID === itemID);
+            if (item) showDocCardForm(item);
+        }
+
+        function deleteDocCard(itemID) {
+            if (confirm("Delete this documentation item and its photos?")) {
+                state.checklistItems = state.checklistItems.filter(i => i.itemID !== itemID);
+                saveStateToDB();
+                renderChecklistItems();
+            }
+        }
+
+        function getDocCardFormHTML(item = {}) {
+            const defaults = {
+                itemID: `doc-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+                description: '', status: 'REPAIR', notes: '', photoIDs: [],
+            };
+            const data = Object.assign({}, defaults, item);
+            
+            const statusButtons = STATUSES.map(stat => 
+                `<label><input type="radio" name="status" value="${stat}" ${stat === data.status ? 'checked' : ''} required> ${stat}</label>`
+            ).join('');
+
+            return `
+            <form id="doc-card-form" data-item-id="${data.itemID}" class="doc-card">
+                <h3>Documentation Item</h3>
+                <input type="hidden" name="itemID" value="${data.itemID}">
+
+                <label for="photo-file">1. Capture Photo(s) (Max ${MAX_PHOTOS}):</label>
+                <input type="file" id="photo-file" multiple accept="image/*" capture="camera">
+                <div id="photo-preview-${data.itemID}" class="photo-previews" style="margin-top: 1rem;">
+                    ${data.photoIDs.length > 0 ? `<p>Loading ${data.photoIDs.length} saved photos...</p>` : ''}
+                </div>
+                <input type="hidden" name="photoIDs" value="${data.photoIDs.join(',')}">
+
+                <hr>
+
+                <label for="description">2. Description & Measurement:</label>
+                <input type="text" name="description" placeholder="e.g., South window frame damage (4x5 FT)" value="${data.description}" required>
+                
+                <h4>3. Status (Risk Flagging)</h4>
+                <div class="grid status-buttons" style="grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+                    ${statusButtons}
+                </div>
+                
+                <hr>
+
+                <div class="notes-input-group">
+                    <label for="notes">4. Notes/Context:</label>
+                    <textarea name="notes" placeholder="Detailed observations, assumptions, or access issues." rows="3">${data.notes}</textarea>
+                    <div class="voice-btn-container doc-controls">
+                        <button type="button" class="secondary" id="voice-notes-button">
+                            🎙️ Speak
+                        </button>
+                    </div>
+                </div>
+
+                <hr>
+                
+                <div class="grid">
+                    <button type="button" class="secondary" id="doc-cancel-button">Cancel</button>
+                    <button type="submit" class="contrast">Save Documentation Card</button>
+                </div>
+            </form>
+            `;
+        }
+
+        function showDocCardForm(item = null) {
+            if (docCardForm) return; 
+            const container = document.getElementById('doc-card-form-container');
+            const button = document.getElementById('add-doc-card-button');
+            
+            button.style.display = 'none';
+            container.insertAdjacentHTML('beforeend', getDocCardFormHTML(item || {}));
+            docCardForm = document.getElementById('doc-card-form');
+            
+            document.getElementById('photo-file').addEventListener('change', handlePhotoCapture);
+            document.getElementById('voice-notes-button').addEventListener('click', startVoiceRecognition);
+
+            docCardForm.addEventListener('submit', handleDocCardSubmit);
+            document.getElementById('doc-cancel-button').addEventListener('click', hideDocCardForm);
+            
+            if (item && item.photoIDs.length > 0) {
+                renderPhotoPreviews(item.photoIDs, item.itemID, `photo-preview-${item.itemID}`, false);
+            }
+            docCardForm.querySelector('input[name="description"]').focus();
+        }
+
+        function hideDocCardForm() {
+            if (docCardForm) {
+                docCardForm.remove();
+                docCardForm = null;
+                document.getElementById('add-doc-card-button').style.display = 'block';
+                renderChecklistItems(); 
+            }
+        }
+
+        function handleDocCardSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            
+            const newItem = {
+                itemID: formData.get('itemID'),
+                description: formData.get('description'),
+                status: formData.get('status'),
+                notes: formData.get('notes'),
+                photoIDs: formData.get('photoIDs').split(',').filter(Boolean), 
+            };
+
+            const existingIndex = state.checklistItems.findIndex(item => item.itemID === newItem.itemID);
+            if (existingIndex > -1) {
+                state.checklistItems[existingIndex] = newItem;
+            } else {
+                state.checklistItems.push(newItem);
+            }
+
+            saveStateToDB();
+            hideDocCardForm();
+        }
+
+        async function handlePhotoCapture(event) {
+            const files = event.target.files;
+            const form = event.target.closest('form');
+            const itemID = form.dataset.itemId;
+            let photoIDs = form.querySelector('input[name="photoIDs"]').value.split(',').filter(Boolean);
+            
+            if (files.length + photoIDs.length > MAX_PHOTOS) {
+                alert(`Maximum ${MAX_PHOTOS} photos allowed per item.`);
+                return;
+            }
+            
+            for (const file of files) {
+                try {
+                    const mediaId = await saveImageToDB(file);
+                    photoIDs.push(mediaId);
+                } catch (error) {
+                    alert('Failed to save photo.');
+                    console.error(error);
+                }
+            }
+
+            form.querySelector('input[name="photoIDs"]').value = photoIDs.join(',');
+            renderPhotoPreviews(photoIDs, itemID, `photo-preview-${itemID}`, false);
+            saveStateToDB(); 
+            event.target.value = ''; 
+        }
+
+        async function renderPhotoPreviews(photoIDs, itemID, containerID, isListView) {
+            const previewContainer = document.getElementById(containerID);
+            if (!previewContainer) return;
+            
+            if (photoIDs.length === 0) {
+                 previewContainer.innerHTML = `<p style="color:gray; margin: 0;">No photos saved.</p>`;
+                 return;
+            }
+
+            previewContainer.innerHTML = '';
+            
+            for (const id of photoIDs) {
+                try {
+                    const blob = await getImageFromDB(id);
+                    const url = URL.createObjectURL(blob);
+                    
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.style.position = 'relative';
+                    
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'photo-thumbnail';
+                    
+                    if (!isListView) { 
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = 'X';
+                        deleteBtn.className = 'warning';
+                        deleteBtn.style.position = 'absolute';
+                        deleteBtn.style.top = '2px';
+                        deleteBtn.style.right = '2px';
+                        deleteBtn.style.padding = '0 5px';
+                        deleteBtn.style.lineHeight = '1';
+                        deleteBtn.style.fontSize = '12px';
+                        deleteBtn.onclick = (e) => {
+                            e.preventDefault(); e.stopPropagation(); 
+                            const form = previewContainer.closest('form');
+                            let currentIDs = form.querySelector('input[name$="photoIDs"]').value.split(',').filter(Boolean);
+                            currentIDs = currentIDs.filter(photoId => photoId !== id);
+                            form.querySelector('input[name$="photoIDs"]').value = currentIDs.join(',');
+                            renderPhotoPreviews(currentIDs, itemID, containerID, false);
+                            saveStateToDB();
+                        };
+                        imgWrapper.appendChild(deleteBtn);
+                    }
+                    
+                    imgWrapper.appendChild(img);
+                    previewContainer.appendChild(imgWrapper);
+                } catch (error) {
+                    console.error("Could not load image ID:", id, error);
+                }
+            }
+        }
+
+        function startVoiceRecognition() {
+            if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+                alert("Voice input not supported in this browser. Please type your notes.");
+                return;
+            }
+            
+            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new Recognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            
+            const notesField = docCardForm.querySelector('textarea[name="notes"]');
+            const voiceButton = document.getElementById('voice-notes-button');
+            
+            voiceButton.textContent = "🔴 LISTENING...";
+            voiceButton.disabled = true;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const currentNotes = notesField.value;
+                notesField.value = currentNotes + (currentNotes ? ' ' : '') + transcript + '.';
+            };
+
+            recognition.onend = () => {
+                voiceButton.textContent = "🎙️ Speak";
+                voiceButton.disabled = false;
+                saveStateToDB();
+            };
+
+            recognition.onerror = () => {
+                voiceButton.textContent = "🎙️ Error: Try Again";
+                voiceButton.disabled = false;
+            };
+
+            recognition.start();
+        }
+
+        // --- 4. SUBCONTRACTOR LOGIC ---
+
+        function renderSubLeads() {
+            const subListContainer = document.getElementById('sub-leads-list');
+            subListContainer.innerHTML = '';
+            
+            if (state.subLeads.length === 0) {
+                subListContainer.innerHTML = '<p>No subcontractor leads captured yet.</p>';
+                return;
+            }
+
+            state.subLeads.forEach(lead => {
+                const photoContainerID = `sub-photo-preview-${lead.subID}`;
+                
+                const leadHtml = `
+                    <div class="doc-entry" data-sub-id="${lead.subID}">
+                        <div class="report-item-title">
+                            ${lead.company} - ${lead.name} (${lead.specialty})
+                        </div>
+                        <div id="${photoContainerID}" class="photo-previews">
+                            <p style="color: gray;">Loading card photo...</p>
+                        </div>
+                        <div class="doc-controls" style="margin-top: 5px;">
+                            <button class="warning" onclick="deleteSubLead('${lead.subID}')">Remove</button>
+                        </div>
+                    </div>
+                `;
+                subListContainer.insertAdjacentHTML('beforeend', leadHtml);
+                if (lead.cardPhotoID) {
+                    renderPhotoPreviews([lead.cardPhotoID], lead.subID, photoContainerID, true);
+                } else {
+                    document.getElementById(photoContainerID).innerHTML = '<p style="color:gray; margin: 0;">No card photo captured.</p>';
+                }
+            });
+        }
+        
+        function deleteSubLead(subID) {
+            if (confirm("Delete this Subcontractor lead?")) {
+                state.subLeads = state.subLeads.filter(lead => lead.subID !== subID);
+                saveStateToDB();
+                renderSubLeads();
+            }
+        }
+
+        function getSubFormHTML(lead = {}) {
+            const specialties = ['ELECTRICAL', 'PLUMBING', 'STRUCTURAL CONCRETE', 'HVAC', 'MASONRY', 'ROOFING', 'SCFFOLDING', 'DEMOLITION', 'OTHER'];
+            const specialtyOptions = specialties.map(spec => 
+                `<option value="${spec}" ${spec === lead.specialty ? 'selected' : ''}>${spec}</option>`
+            ).join('');
+
+            return `
+                <form id="sub-lead-form" data-sub-id="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}" class="doc-card">
+                    <h3>Capture Subcontractor Lead</h3>
+                    <input type="hidden" name="subID" value="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}">
+                    <input type="text" name="name" placeholder="Contact Name" value="${lead.name || ''}" required>
+                    <input type="text" name="company" placeholder="Company Name" value="${lead.company || ''}" required>
+                    
+                    <label for="specialty">Specialty:</label>
+                    <select name="specialty" required>${specialtyOptions}</select>
+
+                    <label for="card-photo">Business Card Photo (Front):</label>
+                    <input type="file" id="card-photo-file" accept="image/*" capture="camera">
+                    <input type="hidden" name="cardPhotoID" value="${lead.cardPhotoID || ''}">
+
+                    <div id="card-preview" class="photo-previews" style="margin-top: 0.5rem;">
+                        ${lead.cardPhotoID ? 'Card captured. Ready to save.' : ''}
+                    </div>
+
+                    <div class="grid" style="margin-top: 1rem;">
+                        <button type="button" class="secondary" onclick="hideSubForm()">Cancel</button>
+                        <button type="submit" class="contrast">Save Sub Lead</button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function showSubForm(lead = null) {
+            if (subForm) return;
+
+            const button = document.getElementById('add-sub-button');
+            const container = document.getElementById('sub-form-container');
+
+            button.style.display = 'none';
+            container.insertAdjacentHTML('beforeend', getSubFormHTML(lead || {}));
+            subForm = document.getElementById('sub-lead-form');
+
+            document.getElementById('card-photo-file').addEventListener('change', handleCardPhotoCapture);
+            
+            subForm.addEventListener('submit', handleSubFormSubmit);
+            subForm.querySelector('input[name="name"]').focus();
+            
+            if (lead && lead.cardPhotoID) {
+                renderPhotoPreviews([lead.cardPhotoID], lead.subID, 'card-preview', false);
+            }
+        }
+
+        function hideSubForm() {
+            if (subForm) {
+                subForm.remove();
+                subForm = null;
+                document.getElementById('add-sub-button').style.display = 'block';
+                renderSubLeads();
+            }
+        }
+
+        async function handleCardPhotoCapture(event) {
+            const file = event.target.files[0];
+            const form = event.target.closest('form');
+            const photoInput = form.querySelector('input[name="cardPhotoID"]');
+
+            if (!file) return;
+
+            try {
+                const mediaId = await saveImageToDB(file);
+                photoInput.value = mediaId;
+                renderPhotoPreviews([mediaId], form.dataset.subId, 'card-preview', false);
+                saveStateToDB();
+            } catch (error) {
+                alert('Failed to save business card image.');
+                console.error(error);
+            }
+        }
+
+        function handleSubFormSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            
+            const newLead = {
+                subID: formData.get('subID'),
+                name: formData.get('name'),
+                company: formData.get('company'),
+                specialty: formData.get('specialty'),
+                cardPhotoID: formData.get('cardPhotoID'),
+            };
+
+            const existingIndex = state.subLeads.findIndex(lead => lead.subID === newLead.subID);
+            if (existingIndex > -1) {
+                state.subLeads[existingIndex] = newLead;
+            } else {
+                state.subLeads.push(newLead);
+            }
+
+            saveStateToDB();
+            hideSubForm();
+        }
+
+        function viewImage(photoID) {
+            getImageFromDB(photoID)
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank').focus();
+                })
+                .catch(err => alert(`Could not load image: ${err}`));
+        }
+
+
+        // --- APPLICATION START ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
