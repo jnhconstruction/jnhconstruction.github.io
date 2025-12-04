@@ -10,8 +10,6 @@
         /* Minimalist JWD Styling */
         body { padding-bottom: 20px; /* Reduced bottom padding */ }
         
-        /* REMOVED: .sticky-footer styles */
-        
         .doc-card { 
             border: 1px solid var(--pico-border-color); 
             padding: 1rem; margin-bottom: 1rem; 
@@ -39,33 +37,18 @@
             border-radius: 3px;
             border: 1px solid #ccc;
         }
-        /* Style the speak button adjacent to the text area */
-        .notes-input-group {
-            position: relative;
-        }
-        .notes-input-group textarea {
-            width: 100%;
-            padding-right: 50px; /* Make space for the button */
-        }
-        .voice-btn-container {
-            position: absolute;
-            top: 25px; /* Adjust based on label height */
-            right: 5px;
-            z-index: 10;
-        }
+        /* Removed: Voice note specific styles (.notes-input-group, .voice-btn-container) */
 
         /* --- FINAL PRINT STYLES --- */
         @media print {
-            /* Set Landscape Orientation and Margins */
             @page { 
                 size: A4 landscape;
                 margin: 0.5in; 
             }
             
             /* HIDE ALL CONTROLS AND FORMS */
-            /* Removed .sticky-footer, since the footer is now part of main content flow */
             .doc-controls, button, input, textarea, select, hgroup, hr,
-            #save-status-container { /* Hide the save status on print */
+            #save-status-container { 
                 display: none !important; 
             }
             
@@ -97,13 +80,11 @@
 
         <section id="project-header" role="group">
             <div id="project-header-print-summary" style="display: none;">
-                </div>
+            </div>
             
             <details open>
                 <summary>Project Details: <strong id="header-summary">Untitled Job Walk - [Date]</strong></summary>
-                
-                <p>Use this area to define the job metadata.</p>
-                
+                                
                 <div class="grid">
                     <label for="project-name">Project Name:</label>
                     <input type="text" id="project-name" placeholder="Project Name" required>
@@ -124,7 +105,7 @@
         <section id="documentation-checklist">
             <h2>Documentation Checklist</h2>
             <div id="checklist-items-list">
-                </div>
+            </div>
             <div id="doc-card-form-container" class="doc-controls">
                 <button class="contrast" id="add-doc-card-button">(+) Add New Documentation Item</button>
             </div>
@@ -135,7 +116,7 @@
         <section id="sub-networking">
             <h2>Subcontractor Leads</h2>
             <div id="sub-leads-list">
-                </div>
+            </div>
             <div id="sub-form-container" class="doc-controls">
                 <button class="secondary" id="add-sub-button">(+) Capture Sub Lead Info</button>
             </div>
@@ -420,7 +401,7 @@
             docCardForm = document.getElementById('doc-card-form');
             
             document.getElementById('photo-file').addEventListener('change', handlePhotoCapture);
-            document.getElementById('voice-notes-button').addEventListener('click', startVoiceRecognition);
+            // Removed: document.getElementById('voice-notes-button').addEventListener('click', startVoiceRecognition);
 
             docCardForm.addEventListener('submit', handleDocCardSubmit);
             document.getElementById('doc-cancel-button').addEventListener('click', hideDocCardForm);
@@ -542,6 +523,8 @@
                 }
             }
         }
+
+        // Removed: startVoiceRecognition function
 
         // --- 4. SUBCONTRACTOR LOGIC ---
 
