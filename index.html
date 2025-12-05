@@ -1,45 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Job Walk Documentation Tool</title>
     <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.*/css/pico.min.css">
     
-    <style>
-        /* Minimalist JWD Styling */
-        body { padding-bottom: 20px; /* Reduced bottom padding */ }
-        
-        .doc-card { 
-            border: 1px solid var(--pico-border-color); 
-            padding: 1rem; margin-bottom: 1rem; 
-            border-radius: var(--pico-border-radius); 
-        }
-        /* FLAT LIST STYLING */
-        .doc-entry {
-            border: 1px solid var(--pico-border-color); 
-            padding: 1rem; margin-bottom: 1rem; 
-            border-radius: var(--pico-border-radius); 
-            background-color: var(--pico-code-background-color);
-        }
-        .doc-controls { 
-            margin-top: 1rem; 
-        }
-        .photo-previews { 
-            display: flex; gap: 0.5rem; 
-            overflow-x: auto; padding-bottom: 5px; 
-            margin-top: 5px;
-        }
-        .photo-thumbnail {
-            max-width: 100px;
-            max-height: 100px;
-            object-fit: cover;
-            border-radius: 3px;
-            border: 1px solid #ccc;
-        }
-        /* Removed: Voice note specific styles (.notes-input-group, .voice-btn-container) */
+ <style>
+    /* Minimalist JWD Styling */
+    body { padding-bottom: 20px; }
+    
+    .doc-card { 
+        border: 1px solid var(--pico-border-color); 
+        padding: 1rem; margin-bottom: 1rem; 
+        border-radius: var(--pico-border-radius); 
+    }
+    /* FLAT LIST STYLING */
+    .doc-entry {
+        border: 1px solid var(--pico-border-color); 
+        padding: 1rem; margin-bottom: 1rem; 
+        border-radius: var(--pico-border-radius); 
+        background-color: var(--pico-code-background-color);
+        position: relative; 
+    }
+    .doc-entry-content {
+        cursor: pointer; 
+        /* Removed padding-right for delete button */
+    }
+    .doc-controls { 
+        margin-top: 1rem; 
+    }
+    .photo-previews { 
+        display: flex; gap: 0.5rem; 
+        overflow-x: auto; padding-bottom: 5px; 
+        margin-top: 5px;
+    }
+    .photo-thumbnail {
+        max-width: 100px;
+        max-height: 100px;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+    }
+    /* Delete Icon is removed */
 
-        /* --- FINAL PRINT STYLES --- */
+    /* --- FINAL PRINT STYLES (FIXED) --- */
+ /* --- FINAL PRINT STYLES --- */
         @media print {
             @page { 
                 size: A4 landscape;
@@ -47,13 +53,19 @@
             }
             
             /* HIDE ALL CONTROLS AND FORMS */
-            .doc-controls, button, input, textarea, select, hgroup, hr,
-            #save-status-container { 
+            .doc-controls, button, select, hgroup, hr,
+            #top-control-bar, .delete-btn-x { 
                 display: none !important; 
             }
             
-            /* HIDE THE COLLAPSIBLE FORM, SHOW ONLY THE PRINT-READY DIV */
-            #project-header details { display: none !important; }
+            /* FIX: Hide the entire functional input area when printing */
+            #project-details-admin,
+            #project-details-admin input, 
+            #project-details-admin textarea { 
+                display: none !important; 
+            }
+
+            /* SHOW only the clean, injected print summary */
             #project-header-print-summary {
                 display: block !important;
                 padding: 10px;
@@ -65,39 +77,49 @@
             body { font-family: Arial, sans-serif; font-size: 10pt; }
             .doc-entry { page-break-inside: avoid; margin-bottom: 15px; border: 1px solid #ddd !important; padding: 10px; display: flex; flex-direction: column; }
             .report-item-title { font-size: 11pt; font-weight: bold; border-bottom: 1px solid #aaa; padding-bottom: 5px; margin-bottom: 5px; width: 100%; }
-            .photo-previews { display: block; float: right; max-width: 45%; margin-left: 10px; margin-bottom: 10px; }
-            .photo-previews img { max-width: 100%; height: auto; margin-top: 5px; border: 1px solid #ccc; }
+            
+            /* PHOTO PRINT FIX: Stack photos underneath text details */
+            .photo-previews { 
+                display: flex !important; 
+                flex-wrap: wrap;
+                margin-top: 10px;
+                width: 100%;
+                float: none !important; 
+                max-width: 100% !important; 
+                overflow: visible !important;
+            }
+            .photo-previews img { 
+                max-width: 30% !important; 
+                height: auto;
+                margin-right: 10px;
+                margin-top: 5px;
+                border: 1px solid #ccc;
+            }
             .doc-entry::after { content: ""; display: table; clear: both; }
         }
     </style>
 </head>
 <body>
     <main class="container">
-        <hgroup>
-            <h1>Job Walk Documentation (JWD)</h1>
-            <p>Capture site details, media, and measurements.</p>
-        </hgroup>
 
         <section id="project-header" role="group">
             <div id="project-header-print-summary" style="display: none;">
             </div>
             
-            <details open>
-                <summary>Project Details: <strong id="header-summary">Untitled Job Walk - [Date]</strong></summary>
-                                
+            <div id="project-details-admin">
                 <div class="grid">
-                    <label for="project-name">Project Name:</label>
+                    <label for="project-name">Project Name</label>
                     <input type="text" id="project-name" placeholder="Project Name" required>
                 </div>
                 
                 <div class="grid">
-                    <label for="job-date">Job Date:</label>
+                    <label for="job-date">Job Date</label>
                     <input type="date" id="job-date" required>
                 </div>
 
-                <label for="scope-brief">High-Level Scope/Contract Reference:</label>
+                <label for="scope-brief">Scope/Contract Reference</label>
                 <textarea id="scope-brief" placeholder="High-Level Scope/Contract Reference" rows="2"></textarea>
-            </details>
+            </div>
         </section>
         
         <hr>
@@ -107,7 +129,7 @@
             <div id="checklist-items-list">
             </div>
             <div id="doc-card-form-container" class="doc-controls">
-                <button class="contrast" id="add-doc-card-button">(+) Add New Documentation Item</button>
+                <button class="contrast" id="add-doc-card-button">(+) Add Documentation Item</button>
             </div>
         </section>
 
@@ -118,572 +140,585 @@
             <div id="sub-leads-list">
             </div>
             <div id="sub-form-container" class="doc-controls">
-                <button class="secondary" id="add-sub-button">(+) Capture Sub Lead Info</button>
+                <button class="contrast" id="add-sub-button">(+) Add Subcontractor Info</button>
             </div>
         </section>
-        
-        <div id="save-status-container" style="text-align: center; margin-top: 30px;">
-            <span id="save-status">Status: Initializing...</span>
-            <div style="margin-top: 10px;">
-                <button id="report-button" class="contrast" disabled>
-                    Print / Save PDF Report
-                </button>
-            </div>
+
+        <div class="grid" style="align-items: center; margin: 5rem 0 0 0;" id="top-control-bar">
+            <button id="report-button" class="secondary" disabled style="margin: 0; justify-self: end;">
+                🖨️ Save PDF Report
+            </button>
         </div>
         
     </main>
 
-    <script>
-        // --- CORE CONSTANTS & STATE ---
-        let db;
-        const DB_NAME = 'JWD_DB';
-        const DB_VERSION = 1;
-        const STATE_ID = 'currentJob';
-        const STATUSES = ['OK', 'REPAIR', 'REPLACE', 'ADDENDUM REQUIRED', 'SAFETY HAZARD'];
-        const MAX_PHOTOS = 3;
+<script>
+    // --- CORE CONSTANTS & STATE ---
+    let db;
+    const DB_NAME = 'JWD_DB';
+    const DB_VERSION = 1;
+    const STATE_ID = 'currentJob';
+    const STATUSES = ['OK', 'REPAIR', 'REPLACE', 'ADDENDUM REQUIRED', 'SAFETY HAZARD'];
+    const MAX_PHOTOS = 3;
 
-        let docCardForm = null;
-        let subForm = null;
+    let docCardForm = null;
+    let subForm = null;
 
-        const state = {
-            id: STATE_ID,
-            project: { name: 'Untitled Job Walk', date: new Date().toISOString().split('T')[0], scope: '' },
-            checklistItems: [], 
-            subLeads: [], 
-        };
+    const state = {
+        id: STATE_ID,
+        project: { name: '', date: new Date().toISOString().split('T')[0], scope: '' },
+        checklistItems: [], 
+        subLeads: [], 
+    };
 
-        // --- 1. INDEXEDDB WRAPPER FUNCTIONS (CRITICAL) ---
+    // --- 1. INDEXEDDB WRAPPER FUNCTIONS (CRITICAL) ---
 
-        function openDatabase() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = (e) => reject('Error opening IndexedDB');
-                request.onsuccess = (e) => { db = e.target.result; resolve(db); };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains('jobs')) { db.createObjectStore('jobs', { keyPath: 'id' }); }
-                    if (!db.objectStoreNames.contains('media')) { db.createObjectStore('media', { keyPath: 'id' }); }
-                };
-            });
-        }
+    function openDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = (e) => reject('Error opening IndexedDB');
+            request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('jobs')) { db.createObjectStore('jobs', { keyPath: 'id' }); }
+                if (!db.objectStoreNames.contains('media')) { db.createObjectStore('media', { keyPath: 'id' }); }
+            };
+        });
+    }
 
-        async function saveStateToDB() {
-            if (!db) return;
-            state.project.name = document.getElementById('project-name').value;
-            state.project.date = document.getElementById('job-date').value;
-            state.project.scope = document.getElementById('scope-brief').value;
+    async function saveStateToDB() {
+        if (!db) return;
+        state.project.name = document.getElementById('project-name').value;
+        state.project.date = document.getElementById('job-date').value;
+        state.project.scope = document.getElementById('scope-brief').value;
 
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(['jobs'], 'readwrite');
-                const store = transaction.objectStore('jobs');
-                const request = store.put(state);
-                
-                request.onsuccess = () => {
-                    document.getElementById('save-status').textContent = 'Status: Saved ' + new Date().toLocaleTimeString();
-                    resolve();
-                };
-                request.onerror = () => {
-                    document.getElementById('save-status').textContent = 'Status: SAVE FAILED! (Check Storage)';
-                    reject('Error saving state');
-                };
-            });
-        }
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['jobs'], 'readwrite');
+            const store = transaction.objectStore('jobs');
+            const request = store.put(state);
+            
+            request.onsuccess = () => {
+                resolve();
+            };
+            request.onerror = () => {
+                console.error('Error saving state');
+                reject('Error saving state');
+            };
+        });
+    }
 
-        async function loadStateFromDB() {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(['jobs'], 'readonly');
-                const store = transaction.objectStore('jobs');
-                const request = store.get(STATE_ID);
+    async function loadStateFromDB() {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['jobs'], 'readonly');
+            const store = transaction.objectStore('jobs');
+            const request = store.get(STATE_ID);
 
-                request.onsuccess = (e) => {
-                    if (e.target.result) {
-                        Object.assign(state, e.target.result); 
-                    }
-                    resolve();
-                };
-                request.onerror = () => reject('Error loading state');
-            });
-        }
+            request.onsuccess = (e) => {
+                resolve(e.target.result); 
+            };
+            request.onerror = (e) => {
+                console.error('Error loading state:', e);
+                resolve(null);
+            }
+        });
+    }
 
-        async function saveImageToDB(blob) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(['media'], 'readwrite');
-                const store = transaction.objectStore('media');
-                const mediaId = `img-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
-                const request = store.add({ id: mediaId, data: blob, timestamp: Date.now() });
+    async function saveImageToDB(blob) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['media'], 'readwrite');
+            const store = transaction.objectStore('media');
+            const mediaId = `img-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+            const request = store.add({ id: mediaId, data: blob, timestamp: Date.now() });
 
-                request.onsuccess = () => resolve(mediaId);
-                request.onerror = () => reject('Error saving image: Check Quota');
-            });
-        }
+            request.onsuccess = () => resolve(mediaId);
+            request.onerror = () => reject('Error saving image: Check Quota');
+        });
+    }
 
-        async function getImageFromDB(id) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(['media'], 'readonly');
-                const store = transaction.objectStore('media');
-                const request = store.get(id);
+    async function getImageFromDB(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['media'], 'readonly');
+            const store = transaction.objectStore('media');
+            const request = store.get(id);
 
-                request.onsuccess = (e) => {
-                    if (e.target.result) {
-                        resolve(e.target.result.data); 
-                    } else {
-                        reject('Image not found.');
-                    }
-                };
-                request.onerror = () => reject('Error retrieving image');
-            });
-        }
+            request.onsuccess = (e) => {
+                if (e.target.result) {
+                    resolve(e.target.result.data); 
+                } else {
+                    reject('Image not found.');
+                }
+            };
+            request.onerror = () => reject('Error retrieving image');
+        });
+    }
 
-        // --- 2. JWD APPLICATION CORE & INIT ---
-        
-        function updateHeaderSummary() {
-            const name = document.getElementById('project-name').value || "Untitled Job Walk";
-            const date = document.getElementById('job-date').value;
-            document.getElementById('header-summary').textContent = `${name} - ${date}`;
+    // --- 2. JWD APPLICATION CORE & INIT ---
+    
+    function updateHeaderSummary() {
+        const name = document.getElementById('project-name').value || "Untitled Job Walk";
+        const date = document.getElementById('job-date').value;
 
-            // Update the print-ready header summary
-            const scope = document.getElementById('scope-brief').value || "N/A";
-            const printHtml = `
-                <h2 style="font-size: 14pt; border-bottom: 2px solid #000; padding-bottom: 5px;">Project Details</h2>
-                <p style="margin: 0; padding: 0;"><strong>Name:</strong> ${name}</p>
-                <p style="margin: 0; padding: 0;"><strong>Date:</strong> ${date}</p>
-                <p style="margin: 5px 0 0 0;"><strong>Scope:</strong> ${scope}</p>
-                <hr style="margin: 10px 0;">
-            `;
-            document.getElementById('project-header-print-summary').innerHTML = printHtml;
-        }
+        // Update the print-ready header summary
+        const scope = document.getElementById('scope-brief').value || "N/A";
+        const printHtml = `
+            <h2 style="font-size: 14pt; border-bottom: 2px solid #000; padding-bottom: 5px;">Project Details</h2>
+            <p style="margin: 0; padding: 0;"><strong>Name</strong> ${name}</p>
+            <p style="margin: 0; padding: 0;"><strong>Date</strong> ${date}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Scope</strong> ${scope}</p>
+            <hr style="margin: 10px 0;">
+        `;
+        document.getElementById('project-header-print-summary').innerHTML = printHtml;
+    }
 
-        async function initializeApp() {
-            try {
-                document.getElementById('save-status').textContent = 'Status: Connecting to DB...';
-                await openDatabase();
-                await loadStateFromDB();
-                
-                document.getElementById('project-name').value = state.project.name;
-                document.getElementById('job-date').value = state.project.date;
-                document.getElementById('scope-brief').value = state.project.scope;
+    async function initializeApp() {
+        try {
+            await openDatabase();
+            const savedData = await loadStateFromDB();
+            
+            let shouldRestore = false;
 
-                // Listeners for auto-save and header update
-                document.querySelectorAll('#project-header input, #project-header textarea').forEach(el => {
-                    el.addEventListener('change', () => {
-                        saveStateToDB();
-                        updateHeaderSummary();
+            if (savedData && savedData.project.name && savedData.project.name !== state.project.name) {
+                shouldRestore = confirm(
+                    `Unsaved data from "${savedData.project.name}" was found. Do you want to RESTORE it?`
+                );
+            } else if (savedData && savedData.checklistItems.length > 0) {
+                 shouldRestore = confirm(
+                    `Unsaved data from "${savedData.project.name || 'Untitled Job Walk'}" was found. Do you want to RESTORE it?`
+                );
+            }
+            
+            if (shouldRestore) {
+                // Handle old status string format on load for compatibility
+                if (typeof savedData.checklistItems[0]?.status === 'string') {
+                    savedData.checklistItems.forEach(item => {
+                        item.status = [item.status];
                     });
-                });
-                setInterval(saveStateToDB, 30000); // 30s Auto-Save
-                
-                document.getElementById('report-button').disabled = false;
-                document.getElementById('report-button').addEventListener('click', () => {
-                    window.print(); 
-                });
-                
-                document.getElementById('add-doc-card-button').addEventListener('click', () => showDocCardForm());
-                document.getElementById('add-sub-button').addEventListener('click', () => showSubForm());
-
-                updateHeaderSummary(); // Initial run of the summary update
-                renderChecklistItems();
-                renderSubLeads();
-                document.getElementById('save-status').textContent = 'Status: Ready';
-
-            } catch (error) {
-                console.error("Initialization Failed:", error);
-                document.getElementById('save-status').textContent = `Status: CRITICAL ERROR - ${error}`;
+                }
+                Object.assign(state, savedData); 
+            } else if (savedData) {
+                // Clear old data if the user chooses not to restore
+                const transaction = db.transaction(['jobs'], 'readwrite');
+                transaction.objectStore('jobs').clear();
             }
-        }
+            
+            // Initialize UI with current state (either fresh or restored)
+            document.getElementById('project-name').value = state.project.name;
+            document.getElementById('job-date').value = state.project.date;
+            document.getElementById('scope-brief').value = state.project.scope;
 
-        // --- 3. CHECKLIST AND DOCUMENTATION CARD LOGIC ---
+            // Listeners for auto-save and header update
+            document.querySelectorAll('#project-header input, #project-header textarea').forEach(el => {
+                el.addEventListener('change', () => {
+                    saveStateToDB();
+                    updateHeaderSummary();
+                });
+            });
+            setInterval(saveStateToDB, 30000); // 30s Auto-Save
+            
+            document.getElementById('report-button').disabled = false;
+            document.getElementById('report-button').addEventListener('click', () => {
+                window.print(); 
+            });
+            
+            document.getElementById('add-doc-card-button').addEventListener('click', () => showDocCardForm());
+            document.getElementById('add-sub-button').addEventListener('click', () => showSubForm());
 
-        function renderChecklistItems() {
-            const listContainer = document.getElementById('checklist-items-list');
-            listContainer.innerHTML = '';
-
+            updateHeaderSummary(); // Initial run of the summary update
+            renderChecklistItems();
+            renderSubLeads();
+            
+            // Auto-show form if list is empty
             if (state.checklistItems.length === 0) {
-                listContainer.innerHTML = '<p>Start documenting by adding a new item.</p>';
-                return;
+                showDocCardForm();
             }
 
-            state.checklistItems.forEach(item => {
-                const photoContainerID = `list-photo-preview-${item.itemID}`;
-                const cardHtml = `
-                    <div class="doc-entry" data-item-id="${item.itemID}">
+        } catch (error) {
+            console.error("Initialization Failed:", error);
+        }
+    }
+
+    // --- 3. CHECKLIST AND DOCUMENTATION CARD LOGIC ---
+
+    function renderChecklistItems() {
+        const listContainer = document.getElementById('checklist-items-list');
+        listContainer.innerHTML = '';
+
+        state.checklistItems.forEach(item => {
+            const photoContainerID = `list-photo-preview-${item.itemID}`;
+            // Format status array for display
+            const statusDisplay = Array.isArray(item.status) ? item.status.join(', ') : item.status || 'N/A';
+            
+            const cardHtml = `
+                <div class="doc-entry" data-item-id="${item.itemID}">
+                    <div class="doc-entry-content" onclick="editDocCard('${item.itemID}')">
                         <div class="report-item-title">
                             ${item.description}
                         </div>
                         <p style="margin-top: 5px;">
                             <strong>Status:</strong> 
-                            <span style="font-weight: bold; color: ${item.status === 'ADDENDUM REQUIRED' ? 'red' : 'green'};">${item.status}</span>
+                            <span style="font-weight: bold; color: ${statusDisplay.includes('ADDENDUM') ? 'red' : 'inherit'};">${statusDisplay}</span>
                         </p>
                         <p><strong>Notes:</strong> ${item.notes || 'N/A'}</p>
                         <div id="${photoContainerID}" class="photo-previews">
                             <p style="color: gray;">Loading photos...</p>
                         </div>
-                        <div class="doc-controls">
-                            <button class="secondary" onclick="editDocCard('${item.itemID}')">Edit</button>
-                            <button class="warning" onclick="deleteDocCard('${item.itemID}')">Delete</button>
-                        </div>
                     </div>
-                `;
-                listContainer.insertAdjacentHTML('beforeend', cardHtml);
-                renderPhotoPreviews(item.photoIDs, item.itemID, photoContainerID, true);
-            });
-        }
-
-        function editDocCard(itemID) {
-            const item = state.checklistItems.find(i => i.itemID === itemID);
-            if (item) showDocCardForm(item);
-        }
-
-        function deleteDocCard(itemID) {
-            if (confirm("Delete this documentation item and its photos?")) {
-                state.checklistItems = state.checklistItems.filter(i => i.itemID !== itemID);
-                saveStateToDB();
-                renderChecklistItems();
-            }
-        }
-
-        function getDocCardFormHTML(item = {}) {
-            const defaults = {
-                itemID: `doc-${Date.now()}-${Math.floor(Math.random() * 999)}`,
-                description: '', status: 'REPAIR', notes: '', photoIDs: [],
-            };
-            const data = Object.assign({}, defaults, item);
-            
-            const statusButtons = STATUSES.map(stat => 
-                `<label><input type="radio" name="status" value="${stat}" ${stat === data.status ? 'checked' : ''} required> ${stat}</label>`
-            ).join('');
-
-            return `
-            <form id="doc-card-form" data-item-id="${data.itemID}" class="doc-card">
-                <h3>Documentation Item</h3>
-                <input type="hidden" name="itemID" value="${data.itemID}">
-
-                <label for="photo-file">1. Capture Photo(s) (Max ${MAX_PHOTOS}):</label>
-                <input type="file" id="photo-file" multiple accept="image/*" capture="camera">
-                <div id="photo-preview-${data.itemID}" class="photo-previews" style="margin-top: 1rem;">
-                    ${data.photoIDs.length > 0 ? `<p>Loading ${data.photoIDs.length} saved photos...</p>` : ''}
                 </div>
-                <input type="hidden" name="photoIDs" value="${data.photoIDs.join(',')}">
-
-                <hr>
-
-                <label for="description">2. Description & Measurement:</label>
-                <input type="text" name="description" placeholder="e.g., South window frame damage (4x5 FT)" value="${data.description}" required>
-                
-                <h4>3. Status (Risk Flagging)</h4>
-                <div class="grid status-buttons" style="grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
-                    ${statusButtons}
-                </div>
-                
-                <hr>
-
-                <div class="notes-input-group">
-                    <label for="notes">4. Notes/Context:</label>
-                    <textarea name="notes" placeholder="Detailed observations, assumptions, or access issues." rows="3">${data.notes}</textarea>
-                </div>
-
-                <hr>
-                
-                <div class="grid">
-                    <button type="button" class="secondary" id="doc-cancel-button">Cancel</button>
-                    <button type="submit" class="contrast">Save Documentation Card</button>
-                </div>
-            </form>
             `;
+            listContainer.insertAdjacentHTML('beforeend', cardHtml);
+            renderPhotoPreviews(item.photoIDs, item.itemID, photoContainerID, true);
+        });
+        
+        // If list is empty after rendering, ensure the content is gone
+        if (state.checklistItems.length === 0 && !docCardForm) {
+             listContainer.innerHTML = '';
+        }
+    }
+
+    function editDocCard(itemID) {
+        const item = state.checklistItems.find(i => i.itemID === itemID);
+        if (item) {
+            // Hide the list view when entering edit mode
+            document.getElementById('checklist-items-list').style.display = 'none';
+            document.getElementById('add-doc-card-button').style.display = 'none';
+            showDocCardForm(item);
+        }
+    }
+
+    // REMOVED: function deleteDocCard(itemID)
+
+    function getDocCardFormHTML(item = {}) {
+        const defaults = {
+            itemID: `doc-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+            description: '', status: [], notes: '', photoIDs: [],
+        };
+        const data = Object.assign({}, defaults, item);
+        
+        // Convert status to array if it's an old string for editing
+        const currentStatuses = Array.isArray(data.status) ? data.status : [data.status];
+
+        // Status Checkboxes
+        const statusButtons = STATUSES.map(stat => 
+            `<label><input type="checkbox" name="status" value="${stat}" ${currentStatuses.includes(stat) ? 'checked' : ''}> ${stat}</label>`
+        ).join('');
+
+        return `
+        <form id="doc-card-form" data-item-id="${data.itemID}" class="doc-card">
+            <h3>Documentation Item</h3>
+            <input type="hidden" name="itemID" value="${data.itemID}">
+
+            <div class="notes-input-group">
+                <label for="notes">Description, Measurements, & Notes:</label>
+                <textarea name="notes" placeholder="e.g., South window frame damage (4x5 FT). Detailed observations, assumptions, or access issues." rows="4" required>${data.notes}</textarea>
+            </div>
+
+            <hr>
+
+            <label>Status</label>
+            <div class="grid status-buttons" style="grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+                ${statusButtons}
+            </div>
+            
+            <hr>
+            
+            <label for="photo-file">Take Photo(s)</label>
+            <input type="file" id="photo-file" multiple accept="image/*" capture="camera">
+            <div id="photo-preview-${data.itemID}" class="photo-previews" style="margin-top: 1rem;">
+                ${data.photoIDs.length > 0 ? `<p>Loading ${data.photoIDs.length} saved photos...</p>` : ''}
+            </div>
+            <input type="hidden" name="photoIDs" value="${data.photoIDs.join(',')}">
+
+            <hr>
+            
+            <div class="grid">
+                <button type="button" class="secondary" id="doc-cancel-button">Cancel</button>
+                <button type="submit" class="contrast">Save Documentation Card</button>
+            </div>
+        </form>
+        `;
+    }
+
+    function showDocCardForm(item = null) {
+        if (docCardForm) return; 
+        const container = document.getElementById('doc-card-form-container');
+        const button = document.getElementById('add-doc-card-button');
+        
+        button.style.display = 'none';
+        
+        // Hide the list and general button when the form is active
+        document.getElementById('checklist-items-list').style.display = 'none'; 
+        
+        container.insertAdjacentHTML('beforeend', getDocCardFormHTML(item || {}));
+        docCardForm = document.getElementById('doc-card-form');
+        
+        document.getElementById('photo-file').addEventListener('change', handlePhotoCapture);
+
+        docCardForm.addEventListener('submit', handleDocCardSubmit);
+        document.getElementById('doc-cancel-button').addEventListener('click', hideDocCardForm);
+        
+        if (item && item.photoIDs.length > 0) {
+            renderPhotoPreviews(item.photoIDs, item.itemID, `photo-preview-${item.itemID}`, false);
+        }
+        docCardForm.querySelector('textarea[name="notes"]').focus(); // Focus on the main input
+    }
+
+    function hideDocCardForm() {
+        if (docCardForm) {
+            docCardForm.remove();
+            docCardForm = null;
+            document.getElementById('add-doc-card-button').style.display = 'block';
+            
+            // Show the list view again
+            document.getElementById('checklist-items-list').style.display = 'block'; 
+            
+            renderChecklistItems(); 
+        }
+    }
+
+    function handleDocCardSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const primaryNotes = formData.get('notes');
+        
+        // Collect all checked statuses into an array
+        const selectedStatuses = [];
+        document.querySelectorAll('#doc-card-form input[name="status"]:checked').forEach(checkbox => {
+            selectedStatuses.push(checkbox.value);
+        });
+
+        const newItem = {
+            itemID: formData.get('itemID'),
+            description: primaryNotes.substring(0, 80) + (primaryNotes.length > 80 ? '...' : ''), // Use first part of notes for description display
+            status: selectedStatuses, // Save as an array
+            notes: primaryNotes, // Save the full text to notes
+            photoIDs: formData.get('photoIDs').split(',').filter(Boolean), 
+        };
+        
+        // Validation check: must select at least one status
+        if (newItem.status.length === 0) {
+            alert("Please select at least one status for this item.");
+            return;
         }
 
-        function showDocCardForm(item = null) {
-            if (docCardForm) return; 
-            const container = document.getElementById('doc-card-form-container');
-            const button = document.getElementById('add-doc-card-button');
-            
-            button.style.display = 'none';
-            container.insertAdjacentHTML('beforeend', getDocCardFormHTML(item || {}));
-            docCardForm = document.getElementById('doc-card-form');
-            
-            document.getElementById('photo-file').addEventListener('change', handlePhotoCapture);
-            // Removed: document.getElementById('voice-notes-button').addEventListener('click', startVoiceRecognition);
-
-            docCardForm.addEventListener('submit', handleDocCardSubmit);
-            document.getElementById('doc-cancel-button').addEventListener('click', hideDocCardForm);
-            
-            if (item && item.photoIDs.length > 0) {
-                renderPhotoPreviews(item.photoIDs, item.itemID, `photo-preview-${item.itemID}`, false);
-            }
-            docCardForm.querySelector('input[name="description"]').focus();
+        const existingIndex = state.checklistItems.findIndex(item => item.itemID === newItem.itemID);
+        if (existingIndex > -1) {
+            state.checklistItems[existingIndex] = newItem;
+        } else {
+            state.checklistItems.push(newItem);
         }
 
-        function hideDocCardForm() {
-            if (docCardForm) {
-                docCardForm.remove();
-                docCardForm = null;
-                document.getElementById('add-doc-card-button').style.display = 'block';
-                renderChecklistItems(); 
-            }
+        saveStateToDB();
+        hideDocCardForm();
+    }
+
+    async function handlePhotoCapture(event) {
+        const files = event.target.files;
+        const form = event.target.closest('form');
+        const itemID = form.dataset.itemId;
+        let photoIDs = form.querySelector('input[name="photoIDs"]').value.split(',').filter(Boolean);
+        
+        if (files.length + photoIDs.length > MAX_PHOTOS) {
+            alert(`Maximum ${MAX_PHOTOS} photos allowed per item.`);
+            return;
         }
-
-        function handleDocCardSubmit(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            
-            const newItem = {
-                itemID: formData.get('itemID'),
-                description: formData.get('description'),
-                status: formData.get('status'),
-                notes: formData.get('notes'),
-                photoIDs: formData.get('photoIDs').split(',').filter(Boolean), 
-            };
-
-            const existingIndex = state.checklistItems.findIndex(item => item.itemID === newItem.itemID);
-            if (existingIndex > -1) {
-                state.checklistItems[existingIndex] = newItem;
-            } else {
-                state.checklistItems.push(newItem);
-            }
-
-            saveStateToDB();
-            hideDocCardForm();
-        }
-
-        async function handlePhotoCapture(event) {
-            const files = event.target.files;
-            const form = event.target.closest('form');
-            const itemID = form.dataset.itemId;
-            let photoIDs = form.querySelector('input[name="photoIDs"]').value.split(',').filter(Boolean);
-            
-            if (files.length + photoIDs.length > MAX_PHOTOS) {
-                alert(`Maximum ${MAX_PHOTOS} photos allowed per item.`);
-                return;
-            }
-            
-            for (const file of files) {
-                try {
-                    const mediaId = await saveImageToDB(file);
-                    photoIDs.push(mediaId);
-                } catch (error) {
-                    alert('Failed to save photo.');
-                    console.error(error);
-                }
-            }
-
-            form.querySelector('input[name="photoIDs"]').value = photoIDs.join(',');
-            renderPhotoPreviews(photoIDs, itemID, `photo-preview-${itemID}`, false);
-            saveStateToDB(); 
-            event.target.value = ''; 
-        }
-
-        async function renderPhotoPreviews(photoIDs, itemID, containerID, isListView) {
-            const previewContainer = document.getElementById(containerID);
-            if (!previewContainer) return;
-            
-            if (photoIDs.length === 0) {
-                 previewContainer.innerHTML = `<p style="color:gray; margin: 0;">No photos saved.</p>`;
-                 return;
-            }
-
-            previewContainer.innerHTML = '';
-            
-            for (const id of photoIDs) {
-                try {
-                    const blob = await getImageFromDB(id);
-                    const url = URL.createObjectURL(blob);
-                    
-                    const imgWrapper = document.createElement('div');
-                    imgWrapper.style.position = 'relative';
-                    
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.className = 'photo-thumbnail';
-                    
-                    if (!isListView) { 
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.textContent = 'X';
-                        deleteBtn.className = 'warning';
-                        deleteBtn.style.position = 'absolute';
-                        deleteBtn.style.top = '2px';
-                        deleteBtn.style.right = '2px';
-                        deleteBtn.style.padding = '0 5px';
-                        deleteBtn.style.lineHeight = '1';
-                        deleteBtn.style.fontSize = '12px';
-                        deleteBtn.onclick = (e) => {
-                            e.preventDefault(); e.stopPropagation(); 
-                            const form = previewContainer.closest('form');
-                            let currentIDs = form.querySelector('input[name$="photoIDs"]').value.split(',').filter(Boolean);
-                            currentIDs = currentIDs.filter(photoId => photoId !== id);
-                            form.querySelector('input[name$="photoIDs"]').value = currentIDs.join(',');
-                            renderPhotoPreviews(currentIDs, itemID, containerID, false);
-                            saveStateToDB();
-                        };
-                        imgWrapper.appendChild(deleteBtn);
-                    }
-                    
-                    imgWrapper.appendChild(img);
-                    previewContainer.appendChild(imgWrapper);
-                } catch (error) {
-                    console.error("Could not load image ID:", id, error);
-                }
+        
+        for (const file of files) {
+            try {
+                const mediaId = await saveImageToDB(file);
+                photoIDs.push(mediaId);
+            } catch (error) {
+                alert('Failed to save photo.');
+                console.error(error);
             }
         }
 
-        // Removed: startVoiceRecognition function
+        form.querySelector('input[name="photoIDs"]').value = photoIDs.join(',');
+        renderPhotoPreviews(photoIDs, itemID, `photo-preview-${itemID}`, false);
+        saveStateToDB(); 
+        event.target.value = ''; 
+    }
 
-        // --- 4. SUBCONTRACTOR LOGIC ---
+    async function renderPhotoPreviews(photoIDs, itemID, containerID, isListView) {
+        const previewContainer = document.getElementById(containerID);
+        if (!previewContainer) return;
+        
+        if (photoIDs.length === 0) {
+             previewContainer.innerHTML = `<p style="color:gray; margin: 0;">No photos saved.</p>`;
+             return;
+        }
 
-        function renderSubLeads() {
-            const subListContainer = document.getElementById('sub-leads-list');
-            subListContainer.innerHTML = '';
-            
-            if (state.subLeads.length === 0) {
-                subListContainer.innerHTML = '<p>No subcontractor leads captured yet.</p>';
-                return;
-            }
-
-            state.subLeads.forEach(lead => {
-                const photoContainerID = `sub-photo-preview-${lead.subID}`;
+        previewContainer.innerHTML = '';
+        
+        for (const id of photoIDs) {
+            try {
+                const blob = await getImageFromDB(id);
+                const url = URL.createObjectURL(blob);
                 
-                const leadHtml = `
-                    <div class="doc-entry" data-sub-id="${lead.subID}">
+                const imgWrapper = document.createElement('div');
+                imgWrapper.style.position = 'relative';
+                
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'photo-thumbnail';
+                
+                if (!isListView) { 
+                    // REMOVED: Delete button from photo thumbnail
+                }
+                
+                imgWrapper.appendChild(img);
+                previewContainer.appendChild(imgWrapper);
+            } catch (error) {
+                console.error("Could not load image ID:", id, error);
+            }
+        }
+    }
+
+    // --- 4. SUBCONTRACTOR LOGIC ---
+
+    function renderSubLeads() {
+        const subListContainer = document.getElementById('sub-leads-list');
+        subListContainer.innerHTML = '';
+
+        state.subLeads.forEach(lead => {
+            const photoContainerID = `sub-photo-preview-${lead.subID}`;
+            
+            const leadHtml = `
+                <div class="doc-entry" data-sub-id="${lead.subID}">
+                    <div class="doc-entry-content">
                         <div class="report-item-title">
                             ${lead.company} - ${lead.name} (${lead.specialty})
                         </div>
                         <div id="${photoContainerID}" class="photo-previews">
                             <p style="color: gray;">Loading card photo...</p>
                         </div>
-                        <div class="doc-controls" style="margin-top: 5px;">
-                            <button class="warning" onclick="deleteSubLead('${lead.subID}')">Remove</button>
-                        </div>
                     </div>
-                `;
-                subListContainer.insertAdjacentHTML('beforeend', leadHtml);
-                if (lead.cardPhotoID) {
-                    renderPhotoPreviews([lead.cardPhotoID], lead.subID, photoContainerID, true);
-                } else {
-                    document.getElementById(photoContainerID).innerHTML = '<p style="color:gray; margin: 0;">No card photo captured.</p>';
-                }
-            });
-        }
-        
-        function deleteSubLead(subID) {
-            if (confirm("Delete this Subcontractor lead?")) {
-                state.subLeads = state.subLeads.filter(lead => lead.subID !== subID);
-                saveStateToDB();
-                renderSubLeads();
-            }
-        }
-
-        function getSubFormHTML(lead = {}) {
-            const specialties = ['ELECTRICAL', 'PLUMBING', 'STRUCTURAL CONCRETE', 'HVAC', 'MASONRY', 'ROOFING', 'SCAFFOLDING', 'DEMOLITION', 'OTHER'];
-            const specialtyOptions = specialties.map(spec => 
-                `<option value="${spec}" ${spec === lead.specialty ? 'selected' : ''}>${spec}</option>`
-            ).join('');
-
-            return `
-                <form id="sub-lead-form" data-sub-id="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}" class="doc-card">
-                    <h3>Capture Subcontractor Lead</h3>
-                    <input type="hidden" name="subID" value="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}">
-                    <input type="text" name="name" placeholder="Contact Name" value="${lead.name || ''}" required>
-                    <input type="text" name="company" placeholder="Company Name" value="${lead.company || ''}" required>
-                    
-                    <label for="specialty">Specialty:</label>
-                    <select name="specialty" required>${specialtyOptions}</select>
-
-                    <label for="card-photo">Business Card Photo (Front):</label>
-                    <input type="file" id="card-photo-file" accept="image/*" capture="camera">
-                    <input type="hidden" name="cardPhotoID" value="${lead.cardPhotoID || ''}">
-
-                    <div id="card-preview" class="photo-previews" style="margin-top: 0.5rem;">
-                        ${lead.cardPhotoID ? 'Card captured. Ready to save.' : ''}
-                    </div>
-
-                    <div class="grid" style="margin-top: 1rem;">
-                        <button type="button" class="secondary" onclick="hideSubForm()">Cancel</button>
-                        <button type="submit" class="contrast">Save Sub Lead</button>
-                    </div>
-                </form>
+                </div>
             `;
-        }
-
-        function showSubForm(lead = null) {
-            if (subForm) return;
-
-            const button = document.getElementById('add-sub-button');
-            const container = document.getElementById('sub-form-container');
-
-            button.style.display = 'none';
-            container.insertAdjacentHTML('beforeend', getSubFormHTML(lead || {}));
-            subForm = document.getElementById('sub-lead-form');
-
-            document.getElementById('card-photo-file').addEventListener('change', handleCardPhotoCapture);
-            
-            subForm.addEventListener('submit', handleSubFormSubmit);
-            subForm.querySelector('input[name="name"]').focus();
-            
-            if (lead && lead.cardPhotoID) {
-                renderPhotoPreviews([lead.cardPhotoID], lead.subID, 'card-preview', false);
-            }
-        }
-
-        function hideSubForm() {
-            if (subForm) {
-                subForm.remove();
-                subForm = null;
-                document.getElementById('add-sub-button').style.display = 'block';
-                renderSubLeads();
-            }
-        }
-
-        async function handleCardPhotoCapture(event) {
-            const file = event.target.files[0];
-            const form = event.target.closest('form');
-            const photoInput = form.querySelector('input[name="cardPhotoID"]');
-
-            if (!file) return;
-
-            try {
-                const mediaId = await saveImageToDB(file);
-                photoInput.value = mediaId;
-                renderPhotoPreviews([mediaId], form.dataset.subId, 'card-preview', false);
-                saveStateToDB();
-            } catch (error) {
-                alert('Failed to save business card image.');
-                console.error(error);
-            }
-        }
-
-        function handleSubFormSubmit(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            
-            const newLead = {
-                subID: formData.get('subID'),
-                name: formData.get('name'),
-                company: formData.get('company'),
-                specialty: formData.get('specialty'),
-                cardPhotoID: formData.get('cardPhotoID'),
-            };
-
-            const existingIndex = state.subLeads.findIndex(lead => lead.subID === newLead.subID);
-            if (existingIndex > -1) {
-                state.subLeads[existingIndex] = newLead;
+            subListContainer.insertAdjacentHTML('beforeend', leadHtml);
+            if (lead.cardPhotoID) {
+                renderPhotoPreviews([lead.cardPhotoID], lead.subID, photoContainerID, true);
             } else {
-                state.subLeads.push(newLead);
+                document.getElementById(photoContainerID).innerHTML = '<p style="color:gray; margin: 0;">No card photo captured.</p>';
             }
+        });
+    }
+    
+    // REMOVED: function deleteSubLead(subID)
 
+    function getSubFormHTML(lead = {}) {
+        const specialties = ['ELECTRICAL', 'PLUMBING', 'STRUCTURAL CONCRETE', 'HVAC', 'MASONRY', 'ROOFING', 'SCAFFOLDING', 'DEMOLITION', 'OTHER'];
+        const specialtyOptions = specialties.map(spec => 
+            `<option value="${spec}" ${spec === lead.specialty ? 'selected' : ''}>${spec}</option>`
+        ).join('');
+
+        return `
+            <form id="sub-lead-form" data-sub-id="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}" class="doc-card">
+                <h3>Capture Subcontractor Lead</h3>
+                <input type="hidden" name="subID" value="${lead.subID || `sub-${Date.now()}-${Math.floor(Math.random() * 999)}`}">
+                <input type="text" name="name" placeholder="Contact Name" value="${lead.name || ''}" required>
+                <input type="text" name="company" placeholder="Company Name" value="${lead.company || ''}" required>
+                
+                <label for="specialty">Specialty</label>
+                <select name="specialty" required>${specialtyOptions}</select>
+
+                <label for="card-photo">Business Card Photo (Front)</label>
+                <input type="file" id="card-photo-file" accept="image/*" capture="camera">
+                <input type="hidden" name="cardPhotoID" value="${lead.cardPhotoID || ''}">
+
+                <div id="card-preview" class="photo-previews" style="margin-top: 0.5rem;">
+                    ${lead.cardPhotoID ? 'Card captured. Ready to save.' : ''}
+                </div>
+
+                <div class="grid" style="margin-top: 1rem;">
+                    <button type="button" class="secondary" onclick="hideSubForm()">Cancel</button>
+                    <button type="submit" class="contrast">Save Sub Lead</button>
+                </div>
+            </form>
+        `;
+    }
+
+    function showSubForm(lead = null) {
+        if (subForm) return;
+
+        const button = document.getElementById('add-sub-button');
+        const container = document.getElementById('sub-form-container');
+
+        button.style.display = 'none';
+        container.insertAdjacentHTML('beforeend', getSubFormHTML(lead || {}));
+        subForm = document.getElementById('sub-lead-form');
+
+        document.getElementById('card-photo-file').addEventListener('change', handleCardPhotoCapture);
+        
+        subForm.addEventListener('submit', handleSubFormSubmit);
+        subForm.querySelector('input[name="name"]').focus();
+        
+        if (lead && lead.cardPhotoID) {
+            renderPhotoPreviews([lead.cardPhotoID], lead.subID, 'card-preview', false);
+        }
+    }
+
+    function hideSubForm() {
+        if (subForm) {
+            subForm.remove();
+            subForm = null;
+            document.getElementById('add-sub-button').style.display = 'block';
+            renderSubLeads();
+        }
+    }
+
+    async function handleCardPhotoCapture(event) {
+        const file = event.target.files[0];
+        const form = event.target.closest('form');
+        const photoInput = form.querySelector('input[name="cardPhotoID"]');
+
+        if (!file) return;
+
+        try {
+            const mediaId = await saveImageToDB(file);
+            photoInput.value = mediaId;
+            renderPhotoPreviews([mediaId], form.dataset.subId, 'card-preview', false);
             saveStateToDB();
-            hideSubForm();
+        } catch (error) {
+            alert('Failed to save business card image.');
+            console.error(error);
+        }
+    }
+
+    function handleSubFormSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        
+        const newLead = {
+            subID: formData.get('subID'),
+            name: formData.get('name'),
+            company: formData.get('company'),
+            specialty: formData.get('specialty'),
+            cardPhotoID: formData.get('cardPhotoID'),
+        };
+
+        const existingIndex = state.subLeads.findIndex(lead => lead.subID === newLead.subID);
+        if (existingIndex > -1) {
+            state.subLeads[existingIndex] = newLead;
+        } else {
+            state.subLeads.push(newLead);
         }
 
-        function viewImage(photoID) {
-            getImageFromDB(photoID)
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank').focus();
-                })
-                .catch(err => alert(`Could not load image: ${err}`));
-        }
+        saveStateToDB();
+        hideSubForm();
+    }
+
+    function viewImage(photoID) {
+        getImageFromDB(photoID)
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank').focus();
+            })
+            .catch(err => alert(`Could not load image: ${err}`));
+    }
 
 
-        // --- APPLICATION START ---
-        document.addEventListener('DOMContentLoaded', initializeApp);
-    </script>
+    // --- APPLICATION START ---
+    document.addEventListener('DOMContentLoaded', initializeApp);
+</script>
 </body>
 </html>
